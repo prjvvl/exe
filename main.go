@@ -62,6 +62,12 @@ func main() {
 	}
 
 	if len(rest) == 0 {
+		if len(app.Commands) == 1 {
+			if err := dispatch.Emit(dispatch.Resolved{Kind: dispatch.KindEval, Text: app.Commands[0].Run}); err != nil {
+				fail(err)
+			}
+			return
+		}
 		if err := tui.RunApp(app); err != nil {
 			fail(err)
 		}

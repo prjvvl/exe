@@ -193,6 +193,11 @@ func (m model) handleSelect() (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case kindApp:
+		if len(item.app.Commands) == 1 {
+			m.result = dispatch.Resolved{Kind: dispatch.KindEval, Text: item.app.Commands[0].Run}
+			m.resultSet = true
+			return m, tea.Quit
+		}
 		w, h := m.currentList().Width(), m.currentList().Height()
 		next := newList(buildCommandItems(*item.app), fmt.Sprintf("exe > %s", item.app.Name))
 		next.SetSize(w, h)

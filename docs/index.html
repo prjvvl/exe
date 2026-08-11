@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>exe: a personal command launcher</title>
+<meta name="description" content="exe resolves `exe <app> <command>` to a shell command and runs it in your current terminal, driven by a plain config file you edit yourself.">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg-raised: #11151d;
+    --border: #22283a;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --accent: #5eead4;
+    --accent-dim: #2dd4bf;
+    --mono: "SFMono-Regular", "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 72px 24px 96px;
+    line-height: 1.6;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 56px;
+  }
+
+  .wordmark {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+
+  .wordmark::before {
+    content: "$ ";
+    color: var(--accent);
+  }
+
+  header a.gh {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  header a.gh:hover { color: var(--text); }
+
+  h1 {
+    font-size: 2.2rem;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .tagline {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+    margin: 0 0 40px;
+    max-width: 52ch;
+  }
+
+  .install {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 12px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--bg);
+    color: var(--text);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .cmd-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .cmd-text {
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    color: var(--accent);
+    overflow-x: auto;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .cmd-text::-webkit-scrollbar { display: none; }
+
+  .copy-btn {
+    flex-shrink: 0;
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .copy-btn:hover { background: #2a3145; }
+  .copy-btn.copied { background: var(--accent-dim); color: #04120f; }
+
+  .install-note {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin: 0 0 64px;
+  }
+  .install-note code {
+    font-family: var(--mono);
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.82em;
+  }
+
+  section { margin-bottom: 56px; }
+
+  h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 0 0 20px;
+    font-weight: 600;
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+  }
+
+  .step {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    padding: 12px 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .step .n {
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .step .cmd { color: var(--text); }
+  .step .desc {
+    color: var(--text-dim);
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  pre {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text);
+    margin: 0;
+  }
+  pre .c { color: var(--text-dim); }
+  pre .k { color: var(--accent); }
+
+  .builtins {
+    display: grid;
+    gap: 12px;
+  }
+  .builtin {
+    display: flex;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .builtin code {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 0.88rem;
+    flex-shrink: 0;
+    width: 90px;
+  }
+  .builtin span {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+  footer a { color: var(--text-dim); }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 520px) {
+    body { padding: 40px 18px 64px; }
+    h1 { font-size: 1.7rem; }
+    .step { flex-wrap: wrap; }
+    .step .desc { margin-left: 0; text-align: left; }
+    .builtin { flex-direction: column; gap: 4px; }
+    .builtin code { width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">exe</span>
+  <a class="gh" href="https://github.com/prjvvl/exe" target="_blank" rel="noopener">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+        0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+        -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+        .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+        -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+        .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+        .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+        0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+    </svg>
+    github.com/prjvvl/exe
+  </a>
+</header>
+
+<h1>Run your local apps from one place.</h1>
+<p class="tagline">
+  <code style="font-family: var(--mono); color: var(--text);">exe &lt;app&gt; &lt;command&gt;</code>
+  resolves to a shell command and runs it in your current terminal, driven entirely
+  by a plain config file you edit yourself, not by anything baked into the tool.
+</p>
+
+<div class="install">
+  <div class="tabs">
+    <button class="tab" id="tab-win" onclick="showOS('win')">Windows</button>
+    <button class="tab" id="tab-unix" onclick="showOS('unix')">macOS / Linux</button>
+  </div>
+  <div class="cmd-row">
+    <div class="cmd-text" id="cmd-text">irm https://raw.githubusercontent.com/prjvvl/exe/main/install.ps1 | iex</div>
+    <button class="copy-btn" id="copy-btn" onclick="copyCmd()">Copy</button>
+  </div>
+</div>
+<p class="install-note">
+  Downloads a prebuilt binary for your OS/arch from the
+  <a href="https://github.com/prjvvl/exe/releases" style="color:var(--text-dim)">latest release</a>
+  and wires up the shell hook automatically, no runtime required. Restart your
+  terminal afterward.
+</p>
+
+<section>
+  <h2>How it works</h2>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><span class="cmd">exe nav projects</span><span class="desc">cd into a folder you defined</span></div>
+    <div class="step"><span class="n">2</span><span class="cmd">exe open vscode</span><span class="desc">launch an app on its default path</span></div>
+    <div class="step"><span class="n">3</span><span class="cmd">exe</span><span class="desc">no args, browse everything in a menu</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Config, not code</h2>
+  <pre><span class="c">~/.config/exe/config.toml</span>
+
+<span class="k">[[apps]]</span>
+name = "nav"
+description = "Jump to common folders"
+
+  <span class="k">[[apps.commands]]</span>
+  name = "projects"
+  run = "cd ~/projects"</pre>
+</section>
+
+<section>
+  <h2>Built in</h2>
+  <div class="builtins">
+    <div class="builtin"><code>exe info</code><span>self-describes exe and its current config, the entry point for pointing an AI agent at it</span></div>
+    <div class="builtin"><code>exe view</code><span>prints the raw config file</span></div>
+    <div class="builtin"><code>exe edit</code><span>opens the config file in your editor</span></div>
+    <div class="builtin"><code>exe update</code><span>checks for and installs the latest release</span></div>
+  </div>
+</section>
+
+<footer>
+  <span>MIT licensed.</span>
+  <a href="https://github.com/prjvvl/exe#readme">Full docs on GitHub &rarr;</a>
+</footer>
+
+<script>
+  var COMMANDS = {
+    win: 'irm https://raw.githubusercontent.com/prjvvl/exe/main/install.ps1 | iex',
+    unix: 'curl -fsSL https://raw.githubusercontent.com/prjvvl/exe/main/install.sh | sh'
+  };
+
+  function showOS(os) {
+    document.getElementById('cmd-text').textContent = COMMANDS[os];
+    document.getElementById('tab-win').classList.toggle('active', os === 'win');
+    document.getElementById('tab-unix').classList.toggle('active', os === 'unix');
+    document.getElementById('copy-btn').textContent = 'Copy';
+    document.getElementById('copy-btn').classList.remove('copied');
+  }
+
+  function copyCmd() {
+    var text = document.getElementById('cmd-text').textContent;
+    var btn = document.getElementById('copy-btn');
+    navigator.clipboard.writeText(text).then(function () {
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 1500);
+    });
+  }
+
+  var isWindows = /Win/i.test(navigator.userAgent || navigator.platform || '');
+  showOS(isWindows ? 'win' : 'unix');
+</script>
+
+</body>
+</html>

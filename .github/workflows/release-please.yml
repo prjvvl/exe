@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       pr: ${{ steps.release.outputs.pr }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -34,3 +36,20 @@ jobs:
         run: |
           pr_number="$(echo "$PR_JSON" | jq -r '.number')"
           gh pr merge --merge --repo "${{ github.repository }}" "$pr_number"
+
+  # release-please tags/releases via the default GITHUB_TOKEN, and GitHub
+  # doesn't let GITHUB_TOKEN-triggered pushes start other workflow runs
+  # (anti-recursion rule). workflow_dispatch is explicitly exempt from that
+  # rule, so this dispatches release.yml directly against the new tag
+  # instead of relying on its push trigger to fire.
+  trigger-build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml --repo "${{ github.repository }}" --ref "${{ needs.release-please.outputs.tag_name }}"

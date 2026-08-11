@@ -62,8 +62,10 @@ it directly) fails with a specific error instead of misbehaving.
 
 ## Landing page
 
-Static install page at `docs/index.html`. Serve it via
-**Settings > Pages > Deploy from a branch > `main` / `/docs`**.
+**https://prjvvl.github.io/exe/**
+
+Static install page, served from `docs/index.html` via GitHub Pages
+(Settings > Pages > Deploy from a branch > `main` / `/docs`).
 
 ## Building from source
 
